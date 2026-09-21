@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NQ Session Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">NQ</span>
+        <span class="brand-name">Session Dashboard</span>
+      </div>
+      <div class="topbar-right">
+        <span id="price" class="price">&mdash;</span>
+        <span id="updated" class="updated">&mdash;</span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card entries-card">
+        <h2>Entry Points</h2>
+        <p class="subtitle">Opening-range breakout &amp; pivot reaction levels for today's session</p>
+        <div id="entries" class="entries-list">
+          <div class="placeholder">Loading levels…</div>
+        </div>
+      </section>
+
+      <section class="card levels-card">
+        <h2>Session Levels</h2>
+        <div id="levels" class="levels-grid">
+          <div class="placeholder">Loading…</div>
+        </div>
+      </section>
+
+      <section class="card news-card">
+        <h2>News</h2>
+        <div id="news" class="news-list">
+          <div class="placeholder">Loading headlines…</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="disclaimer">
+      For informational purposes only &mdash; not financial advice. Levels are mechanically derived from price data; always manage your own risk.
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
