@@ -1,0 +1,21 @@
+{
+  "account_capital": 25000.0,
+  "risk_per_trade_usd": 150.0,
+  "max_daily_loss_usd": 400.0,
+  "max_weekly_loss_usd": 1000.0,
+  "max_monthly_loss_usd": 2000.0,
+  "max_total_drawdown_usd": 2500.0,
+  "max_open_positions": 1,
+  "max_contracts": 2,
+  "max_order_size": 2,
+  "max_trades_per_day": 4,
+  "max_consecutive_losses": 3,
+  "max_slippage_ticks": 4.0,
+  "daily_profit_lock_usd": null,
+  "session_start": "09:30:00",
+  "no_entries_after": "15:30:00",
+  "flatten_at": "15:55:00",
+  "news_blackout_minutes_before": 5,
+  "news_blackout_minutes_after": 10,
+  "max_data_staleness_seconds": 1200
+}

@@ -1,0 +1,18 @@
+[Unit]
+Description=NQ Autotrader dashboard
+After=network-online.target
+
+[Service]
+User=nqt
+WorkingDirectory=/home/nqt/nqtrader
+EnvironmentFile=/home/nqt/nqtrader/.env
+ExecStart=/home/nqt/nqtrader/.venv/bin/python -m nqtrader serve --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/nqt/nqtrader/var /home/nqt/nqtrader/reports
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

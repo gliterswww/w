@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NQ Autotrader</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a1a19'/%3E%3Cpath d='M7 22l6-7 4 4 8-10' stroke='%233987e5' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--surface-2)"/><path d="M7 22l6-7 4 4 8-10" stroke="var(--series-1)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>NQ Autotrader</span>
+    </div>
+    <div class="status-strip" id="status-strip"></div>
+    <div class="topbar-right">
+      <div class="clock" id="clock" title="Exchange time (ET)">--:--:-- ET</div>
+      <button class="btn-kill" id="btn-kill" type="button">Emergency stop</button>
+    </div>
+  </header>
+
+  <div id="banners" class="banners" aria-live="polite"></div>
+
+  <div class="layout">
+    <nav class="sidenav" id="nav" aria-label="Sections">
+      <a href="#overview" data-page="overview">Overview</a>
+      <a href="#scanner" data-page="scanner">Chart scanner</a>
+      <a href="#risk" data-page="risk">Risk &amp; budget</a>
+      <a href="#performance" data-page="performance">Performance</a>
+      <a href="#research" data-page="research">Research</a>
+      <a href="#news" data-page="news">News &amp; earnings</a>
+      <a href="#alerts" data-page="alerts">Price alerts</a>
+      <a href="#system" data-page="system">System</a>
+    </nav>
+
+    <main id="main">
+      <!-- OVERVIEW -->
+      <section class="page" id="page-overview">
+        <div class="kpis" id="kpis"></div>
+        <div class="grid-overview">
+          <div class="card chart-card">
+            <div class="card-head">
+              <h2>NQ <span class="muted" id="chart-contract"></span></h2>
+              <div class="card-tools">
+                <label class="sr-only" for="chart-day">Session</label>
+                <select id="chart-day"></select>
+              </div>
+            </div>
+            <div class="chart-legend" id="chart-legend"></div>
+            <div id="price-chart" class="chart chart-lg"></div>
+          </div>
+          <div class="stack">
+            <div class="card" id="position-card"></div>
+            <div class="card" id="signal-card"></div>
+          </div>
+          <div class="card" id="timer-card"></div>
+          <div class="card log-card">
+            <div class="card-head"><h2>Execution log</h2><a href="#system" class="link">All events</a></div>
+            <div id="log-mini" class="log"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCANNER -->
+      <section class="page" id="page-scanner" hidden>
+        <div class="page-head"><h1>Chart scanner</h1><p class="sub">Every candidate strategy, replayed live over today's bars. Only the production strategy places orders.</p></div>
+        <div class="grid-2-1">
+          <div class="card"><div id="scanner-table"></div></div>
+          <div class="card"><div class="card-head"><h2>Key levels</h2></div><div id="levels"></div></div>
+        </div>
+      </section>
+
+      <!-- RISK -->
+      <section class="page" id="page-risk" hidden>
+        <div class="page-head"><h1>Risk &amp; budget</h1><p class="sub">Risk rules override every signal. Limits are read-only here; change them in <code>config/risk.json</code> and restart the engine.</p></div>
+        <div class="grid-2">
+          <div class="card"><div class="card-head"><h2>Loss budgets</h2></div><div id="budgets"></div></div>
+          <div class="card"><div class="card-head"><h2>Trade gate</h2></div><div id="gate"></div></div>
+          <div class="card"><div class="card-head"><h2>Position size calculator</h2></div><div id="sizer"></div></div>
+          <div class="card"><div class="card-head"><h2>Configured limits</h2><span class="muted mono" id="limits-digest"></span></div><div id="limits"></div></div>
+        </div>
+      </section>
+
+      <!-- PERFORMANCE -->
+      <section class="page" id="page-performance" hidden>
+        <div class="page-head"><h1>Performance</h1><p class="sub" id="perf-sub"></p></div>
+        <div class="kpis" id="perf-kpis"></div>
+        <div class="grid-2">
+          <div class="card"><div class="card-head"><h2>Equity (closed trades)</h2></div><div id="equity-chart" class="chart chart-md"></div></div>
+          <div class="card"><div class="card-head"><h2>Daily P&amp;L</h2></div><div id="daypnl-chart" class="chart chart-md"></div></div>
+          <div class="card"><div class="card-head"><h2>By entry hour</h2></div><div id="perf-hours"></div></div>
+          <div class="card"><div class="card-head"><h2>By strategy</h2></div><div id="perf-strats"></div></div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Trade history</h2></div><div id="trade-table" class="table-wrap"></div></div>
+      </section>
+
+      <!-- RESEARCH -->
+      <section class="page" id="page-research" hidden>
+        <div class="page-head"><h1>Strategy research</h1><p class="sub" id="research-sub"></p></div>
+        <div id="research-conclusion"></div>
+        <div class="card"><div class="card-head"><h2>Out-of-sample results vs. baselines</h2><span class="muted">walk-forward, after costs</span></div><div id="research-table" class="table-wrap"></div></div>
+        <div class="card"><div class="card-head"><h2>Out-of-sample equity</h2></div><div class="chart-legend" id="research-legend"></div><div id="research-chart" class="chart chart-md"></div></div>
+        <div class="card">
+          <div class="card-head"><h2>Strategy detail</h2><select id="research-pick"></select></div>
+          <div id="research-detail"></div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Experiments</h2></div><div id="experiments" class="table-wrap"></div></div>
+      </section>
+
+      <!-- NEWS -->
+      <section class="page" id="page-news" hidden>
+        <div class="page-head"><h1>News &amp; earnings</h1><p class="sub">High-impact releases block new entries around their release time. Headlines are informational and never trigger trades.</p></div>
+        <div class="grid-2">
+          <div class="card"><div class="card-head"><h2>Economic calendar</h2></div><div id="econ"></div></div>
+          <div class="card"><div class="card-head"><h2>Earnings analyst</h2></div><div id="earnings"></div></div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Headlines</h2><button class="btn" id="btn-refresh-news" type="button">Refresh</button></div><div id="headlines"></div></div>
+      </section>
+
+      <!-- ALERTS -->
+      <section class="page" id="page-alerts" hidden>
+        <div class="page-head"><h1>Price alerts</h1><p class="sub">Checked against every completed bar. Alerts notify you; they never place orders.</p></div>
+        <div class="grid-1-2">
+          <div class="card">
+            <div class="card-head"><h2>New alert</h2></div>
+            <form id="alert-form" class="form">
+              <label>Price<input id="alert-price" type="number" step="0.25" min="0" required inputmode="decimal"></label>
+              <div class="quick" id="alert-quick"></div>
+              <label>Trigger when price is
+                <select id="alert-dir"><option value="above">at or above</option><option value="below">at or below</option></select>
+              </label>
+              <label>Note<input id="alert-note" type="text" maxlength="120" placeholder="optional"></label>
+              <button class="btn btn-primary" type="submit">Create alert</button>
+              <button class="btn" type="button" id="btn-notify">Enable browser notifications</button>
+            </form>
+          </div>
+          <div class="card"><div class="card-head"><h2>Alerts</h2></div><div id="alert-list"></div></div>
+        </div>
+      </section>
+
+      <!-- SYSTEM -->
+      <section class="page" id="page-system" hidden>
+        <div class="page-head"><h1>System</h1></div>
+        <div class="grid-2">
+          <div class="card"><div class="card-head"><h2>Connections &amp; health</h2></div><div id="health"></div></div>
+          <div class="card"><div class="card-head"><h2>Live-trading readiness</h2></div><div id="preflight"></div></div>
+          <div class="card"><div class="card-head"><h2>Strategy versions</h2></div><div id="versions" class="table-wrap"></div></div>
+          <div class="card"><div class="card-head"><h2>Contract &amp; rollover</h2></div><div id="contract"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Event log</h2>
+            <select id="log-level"><option value="">All levels</option><option>critical</option><option>error</option><option>warning</option><option>alert</option><option>info</option></select>
+          </div>
+          <div id="log-full" class="log log-tall"></div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <span>Simulated results are not live performance. Futures trading carries substantial risk of loss.</span>
+        <span>Charts: <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts</a></span>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="dlg-kill" class="dialog">
+    <form method="dialog">
+      <h2>Engage emergency stop?</h2>
+      <p>The engine will <strong>flatten any open position at market</strong> and stop opening new ones until you release it.</p>
+      <label>Reason<input id="kill-reason" type="text" maxlength="200" value="manual"></label>
+      <div class="dialog-actions"><button value="cancel" class="btn">Cancel</button><button value="ok" class="btn btn-danger" id="kill-confirm">Engage stop</button></div>
+    </form>
+  </dialog>
+  <dialog id="dlg-resume" class="dialog">
+    <form method="dialog">
+      <h2>Release emergency stop</h2>
+      <p>Trading resumes on the next bar, within all risk limits. Type <strong>RESUME</strong> to confirm.</p>
+      <label class="sr-only" for="resume-text">Confirmation</label><input id="resume-text" type="text" autocomplete="off">
+      <div class="dialog-actions"><button value="cancel" class="btn">Cancel</button><button value="ok" class="btn btn-primary">Release</button></div>
+    </form>
+  </dialog>
+  <dialog id="dlg-token" class="dialog">
+    <form method="dialog">
+      <h2>Dashboard token</h2>
+      <p>This server requires a token for controls. Enter the value of <code>NQT_DASHBOARD_TOKEN</code>.</p>
+      <input id="token-text" type="password" autocomplete="off">
+      <div class="dialog-actions"><button value="cancel" class="btn">Cancel</button><button value="ok" class="btn btn-primary">Save</button></div>
+    </form>
+  </dialog>
+  <div id="toasts" class="toasts" aria-live="assertive"></div>
+
+  <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

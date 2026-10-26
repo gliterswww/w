@@ -1,0 +1,116 @@
+// NQ Autotrader: levels & signals overlay
+// Mirrors the engine's production strategy (10:00 opening-range breakout) and the levels the
+// chart scanner uses, so you can see on TradingView what the bot sees.
+//
+// This indicator is for VISUALIZATION and optional notifications. The bot computes its own
+// signals from broker data; it never trades from a TradingView alert.
+//
+// Use on NQ1! or MNQ1! (or the current contract), 1-minute chart, exchange time zone.
+//@version=6
+indicator("NQ Autotrader levels", overlay = true, max_lines_count = 200, max_labels_count = 200)
+
+// ---------- inputs (keep in sync with the engine's strategy version)
+orbMinutes  = input.int(30, "Opening range minutes", options = [15, 30, 60])
+targetR     = input.float(2.0, "Target (R multiple, 0 = hold to 15:55)", minval = 0, step = 0.5)
+stopCapAtr  = input.float(0.35, "Max stop (x ATR)", step = 0.05)
+lastEntryHH = input.int(12, "No ORB entries from (hour, ET)")
+showVwap    = input.bool(true, "RTH VWAP and ±2σ bands")
+showPrior   = input.bool(true, "Prior RTH high / low / close")
+tz          = "America/New_York"
+
+// ---------- session clock (regular trading hours, ET)
+inRth   = not na(time(timeframe.period, "0930-1600", tz))
+newRth  = inRth and not inRth[1]
+minOfDay = hour(time, tz) * 60 + minute(time, tz)
+orbEnd  = 9 * 60 + 30 + orbMinutes
+
+// ---------- per-session state
+var float orbHi = na
+var float orbLo = na
+var bool  traded = false
+var float dayHi = na
+var float dayLo = na
+var float prevHi = na
+var float prevLo = na
+var float prevClose = na
+var float lastRthClose = na
+var array<float> ranges = array.new<float>()
+var float sumPV = 0.0
+var float sumV = 0.0
+var float sumP2V = 0.0
+
+if newRth
+    if not na(dayHi)
+        prevHi := dayHi
+        prevLo := dayLo
+        prevClose := lastRthClose
+        array.push(ranges, dayHi - dayLo)
+        if array.size(ranges) > 14
+            array.shift(ranges)
+    orbHi := na
+    orbLo := na
+    traded := false
+    dayHi := high
+    dayLo := low
+    sumPV := 0.0
+    sumV := 0.0
+    sumP2V := 0.0
+
+if inRth
+    dayHi := math.max(nz(dayHi, high), high)
+    dayLo := math.min(nz(dayLo, low), low)
+    lastRthClose := close
+    if minOfDay < orbEnd
+        orbHi := math.max(nz(orbHi, high), high)
+        orbLo := math.min(nz(orbLo, low), low)
+    tp = hlc3
+    v = volume > 0 ? volume : 1.0
+    sumPV += tp * v
+    sumV += v
+    sumP2V += tp * tp * v
+
+atr = array.size(ranges) >= 5 ? array.avg(ranges) : na
+vw = inRth and sumV > 0 ? sumPV / sumV : na
+sd = inRth and sumV > 0 ? math.sqrt(math.max(sumP2V / sumV - vw * vw, 0)) : na
+
+// ---------- ORB breakout signal (signal on bar close; the engine enters at the next open)
+orbReady = inRth and minOfDay >= orbEnd and not na(orbHi)
+canEnter = orbReady and not traded and minOfDay < lastEntryHH * 60 and not na(atr)
+longSig  = canEnter and close > orbHi
+shortSig = canEnter and close < orbLo and not longSig
+cap = stopCapAtr * nz(atr)
+vwCross = ta.cross(close, nz(vw))   // evaluated every bar (v6 'and' is lazy)
+
+var line stopLine = na
+var line targetLine = na
+if longSig or shortSig
+    traded := true
+    side = longSig ? 1 : -1
+    other = longSig ? orbLo : orbHi
+    stop = math.abs(close - other) <= cap ? other : close - side * cap
+    risk = math.abs(close - stop)
+    stopLine := line.new(bar_index, stop, bar_index + 30, stop, color = color.new(#d03b3b, 0), style = line.style_dashed)
+    if targetR > 0
+        target = close + side * risk * targetR
+        targetLine := line.new(bar_index, target, bar_index + 30, target, color = color.new(#0ca30c, 0), style = line.style_dashed)
+
+// ---------- plots
+plot(orbReady ? orbHi : na, "Opening range high", color = color.new(#3987e5, 0), style = plot.style_linebr, linewidth = 2)
+plot(orbReady ? orbLo : na, "Opening range low", color = color.new(#3987e5, 0), style = plot.style_linebr, linewidth = 2)
+plot(showVwap ? vw : na, "VWAP", color = color.new(#c98500, 0), style = plot.style_linebr, linewidth = 2)
+plot(showVwap and not na(sd) ? vw + 2 * sd : na, "VWAP +2σ", color = color.new(#c98500, 60), style = plot.style_linebr)
+plot(showVwap and not na(sd) ? vw - 2 * sd : na, "VWAP -2σ", color = color.new(#c98500, 60), style = plot.style_linebr)
+plot(showPrior and inRth ? prevHi : na, "Prior high", color = color.new(#898781, 0), style = plot.style_linebr)
+plot(showPrior and inRth ? prevLo : na, "Prior low", color = color.new(#898781, 0), style = plot.style_linebr)
+plot(showPrior and inRth ? prevClose : na, "Prior close", color = color.new(#898781, 50), style = plot.style_linebr)
+plotshape(longSig, "ORB long", shape.triangleup, location.belowbar, color.new(#0ca30c, 0), size = size.small, text = "ORB L")
+plotshape(shortSig, "ORB short", shape.triangledown, location.abovebar, color.new(#d03b3b, 0), size = size.small, text = "ORB S")
+
+// ---------- alerts. For the dashboard webhook, paste your NQT_TV_WEBHOOK_SECRET into the message.
+// That secret only lets TradingView post notes to your dashboard; it cannot place trades.
+alertcondition(longSig, "ORB long signal",
+     '{"secret":"PASTE_SECRET","kind":"orb_long","ticker":"{{ticker}}","price":{{close}},"time":"{{timenow}}"}')
+alertcondition(shortSig, "ORB short signal",
+     '{"secret":"PASTE_SECRET","kind":"orb_short","ticker":"{{ticker}}","price":{{close}},"time":"{{timenow}}"}')
+alertcondition(inRth and vwCross, "Price crossed VWAP",
+     '{"secret":"PASTE_SECRET","kind":"vwap_cross","ticker":"{{ticker}}","price":{{close}},"time":"{{timenow}}"}')

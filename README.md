@@ -1,84 +1,72 @@
-# NQ Session Dashboard
+# NQ Autotrader
 
-A simple, clean dashboard for trading NQ1! (Nasdaq-100 futures) on TradingView. It shows:
+A research-first, risk-managed automated trading system for Nasdaq-100 futures (NQ / MNQ),
+with a web dashboard and TradingView integration.
 
-- **News** — relevant headlines (Fed/rates, inflation, Nasdaq big-tech, earnings) pulled from free public feeds.
-- **Entry Points** — up to 4 mechanically-derived levels for the session, combining two standard methods:
-  - **Opening Range Breakout (ORB)**: long above / short below the first 15 minutes of the regular session (9:30–9:45 AM ET).
-  - **Pivot Points**: classic floor-trader pivots (S1/S2, R1/R2) from the prior session's high/low/close.
-- **Session Levels** — the raw ORB and pivot levels, for context.
+> **Status: paper trading only.** No live broker is connected, and no real orders can be sent.
+> Results shown so far come from **synthetic** data and say nothing about real markets. The
+> system won't claim an edge it hasn't measured, and so far it hasn't been run on real NQ history.
 
-The dashboard itself is read-only. There's also a separate **trading bot** (see below) that trades these same entries on its own, in paper (simulated) mode.
+## What's in it
 
-## Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Run
-
-```bash
-python app.py
-```
-
-Then open **http://localhost:5000**. The page auto-refreshes every 60 seconds.
-
-## How the entries are calculated
-
-| Entry | Side | Trigger | Stop |
-|---|---|---|---|
-| ORB Breakout | Long | Opening range high + 5 pts | Opening range low |
-| ORB Breakout | Short | Opening range low − 5 pts | Opening range high |
-| Pivot Support | Long | S1 | S2 |
-| Pivot Resistance | Short | R1 | R2 |
-
-ORB entries only appear once the opening range has formed (9:45 AM ET); before that, pivot entries are shown on their own. All levels come straight from price data — there's no discretionary judgment involved, so treat them as a starting point, not a signal.
-
-## Trading bot (paper mode)
-
-The bot follows strict, fixed rules. It doesn't guess or "think": it trades the dashboard's entry points and applies risk limits on every trade.
-
-```bash
-python backtest.py                       # how would it have done over the last 7 days?
-python backtest.py --interval 5m --days 59
-python bot.py                            # run it live on today's session (simulated fills)
-```
-
-**What it does:**
-
-- **ORB breakouts** go in as stop orders through the opening-range high/low. **Pivot reactions** go in as limit orders at S1/R1.
-- A setup only goes live once price is on the right side of it. If price is already past the level, the bot treats it as missed and doesn't chase it.
-- Every trade gets a stop (the entry's stop) and a take-profit at **2× the risk**.
-- It holds one position at a time, and each setup trades at most once per day.
-
-**Safety limits** (in `Config` in `strategy.py`):
-
-| Setting | Default |
+| Component | What it does |
 |---|---|
-| Instrument | 1 × MNQ (micro, $2/point) |
-| Skip setups with a stop wider than | 60 points |
-| Max trades per day | 3 |
-| Daily loss limit | $250 (no new trades after it's hit) |
-| No new entries after | 3:00 PM ET |
-| Flatten any open position at | 3:55 PM ET |
+| **Strategy research** | Walk-forward tests 5 NQ strategies (10:00 opening-range breakout, VWAP pullback, VWAP reversion, liquidity-sweep failed breakout, late-day momentum) against no-trade, random-entry and buy-the-open baselines, after commissions and slippage. Includes a holdout period, regimes, parameter sensitivity and statistical gates. |
+| **Chart scanner** | Replays every strategy over today's bars live: which are watching, signalling, or in a trade, plus key levels (VWAP bands, 10:00 range, prior day). |
+| **Risk manager** | Hard limits that override every signal: risk per trade, daily/weekly/monthly loss, drawdown, consecutive losses, trades/day, max contracts, slippage, profit lock, session window, news blackout. It also blocks entries whenever broker, positions, stops, data or contract are unconfirmed. |
+| **Budget manager** | Capital, equity high-water mark, and remaining daily, weekly and monthly loss budgets. |
+| **Order executor** | Bracket orders (entry + stop + target), idempotent client ids, reconciliation with the broker every bar, automatic recovery, one-shot flatten, emergency stop. |
+| **Exit planner** | For each position: stop, target, R ladder, $ at each level, time exit. |
+| **Entry timer** | Today's schedule (range complete, entry windows, cut-offs, flatten, news events) with countdowns, plus research stats by entry hour. |
+| **News monitor** | Topic-tagged headlines, plus an economic calendar whose high-impact events block entries. |
+| **Earnings analyst** | Mega-cap Nasdaq-100 report dates mapped to the NQ session that reacts. Research splits performance on those days. |
+| **Price alerts** | Set from the dashboard, checked every bar, delivered as a toast or browser notification. Alerts never trade. |
+| **Versioning** | Strategies are promoted only with a passing experiment, and rollback is one command. Nothing rewrites itself. |
+| **TradingView** | A Pine v6 overlay of the bot's levels and signals, plus an optional alert webhook (notifications only). |
 
-`bot.py` writes its current position, trades and P&L to `bot_state.json`, and each day's trades to `journal.json`. The backtest and the live bot share one engine (`SessionTrader`), so whatever you see in a backtest is exactly what the bot does live.
+## Quick start
 
-**Limitations:**
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest -q                 # 58 tests
 
-- **There's no broker connection.** All fills are simulated, so no real money is at risk. Live trading would need a futures broker API (Tradovate, Interactive Brokers, NinjaTrader, etc.) behind the same engine.
-- **The data is delayed.** Yahoo's futures data runs about 10 minutes behind and has gaps, so paper results are only approximate.
-- **Fills are simulated conservatively.** If a single bar touches both the stop and the target, the bot counts it as a stop. Slippage beyond gaps isn't modeled.
-- **Yahoo only keeps a little history:** 7 days of 1-minute bars, or about 60 days of 5-minute bars. That's not much to judge a strategy on.
+python -m nqtrader demo --reset     # synthetic research + 30-session paper replay
+python -m nqtrader serve            # → http://127.0.0.1:8000
+```
 
-## Notes
+## With real data
 
-- Market data comes from Yahoo Finance (`NQ=F`) via `yfinance`, no API key required.
-- News comes from free RSS feeds (Yahoo Finance, MarketWatch), filtered by keyword relevance.
-- If either data source is unreachable, the dashboard degrades gracefully and shows a "couldn't load" message instead of crashing.
-- Everything runs locally: there are no accounts and no broker connection, and no real orders are ever sent.
+```bash
+# 1-minute NQ bars (Databento, TradingView export, or generic CSV), ideally 2021 → today
+python -m nqtrader research --data nq_1m.csv --instrument NQ
+# If, and only if, a strategy passes every gate:
+python -m nqtrader promote orb --params '{"minutes": 30, "target_r": 2.0}' --experiment <id>
+python -m nqtrader paper            # paper-trade today on delayed Yahoo data
+python -m nqtrader refresh          # headlines + earnings dates
+python -m nqtrader authorize-live   # pre-live checklist (live adapter not built yet)
+```
 
-**Not financial advice.** For informational purposes only — always manage your own risk.
+Other commands: `versions`, `rollback`, `kill`, `resume`. See `python -m nqtrader -h`.
+
+## Configuration
+
+* `config/risk.json`: your risk limits (validated on load; the system never changes them).
+  `risk.paper.json` relaxes data staleness for delayed Yahoo data; `risk.demo.json` is for the demo.
+* `config/economic_calendar.csv`: scheduled releases (`datetime_et,event,impact,source`).
+  **Fill in the full schedule.** Only verified FOMC and CPI dates are included.
+* `config/earnings.csv`: optional manual earnings dates (`symbol,date,timing` with `bmo`/`amc`).
+* Secrets go in environment variables only: see `deploy/env.example`.
+
+## Docs
+
+* [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): feasibility, broker/data choice, design,
+  validation gates, costs, phase status, and what's needed next.
+* [`docs/OPERATIONS.md`](docs/OPERATIONS.md): deployment, monitoring, backups, runbooks, and the
+  live-launch checklist.
+* `tradingview/nq_autotrader_levels.pine`: paste into the TradingView Pine Editor.
+
+`legacy/` holds the original read-only session dashboard.
+
+**Not financial advice.** Futures trading involves substantial risk of loss. Backtests and paper
+results are simulations, not evidence of future performance.

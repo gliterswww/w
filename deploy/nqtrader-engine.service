@@ -1,0 +1,20 @@
+[Unit]
+Description=NQ Autotrader engine (paper)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nqt
+WorkingDirectory=/home/nqt/nqtrader
+EnvironmentFile=/home/nqt/nqtrader/.env
+ExecStart=/home/nqt/nqtrader/.venv/bin/python -m nqtrader paper
+Restart=on-failure
+RestartSec=15
+# hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/nqt/nqtrader/var /home/nqt/nqtrader/reports
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

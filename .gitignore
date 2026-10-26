@@ -2,5 +2,6 @@
 __pycache__/
 *.pyc
 .env
-bot_state.json
-journal.json
+var/
+reports/
+.pytest_cache/
