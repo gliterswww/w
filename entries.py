@@ -16,6 +16,7 @@ class Entry:
     trigger: float
     stop: float
     note: str
+    kind: str = "reaction"  # "breakout" (stop order through the level) or "reaction" (limit order at it)
 
 
 def build_entries(pivots: Pivots | None, orb: OpeningRange | None, price: float | None) -> list[dict]:
@@ -28,6 +29,7 @@ def build_entries(pivots: Pivots | None, orb: OpeningRange | None, price: float 
             trigger=round(orb.high + BUFFER, 2),
             stop=round(orb.low, 2),
             note=f"Breaks above the {ORB_LABEL} opening range high; stop back inside the range.",
+            kind="breakout",
         ))
         entries.append(Entry(
             label="ORB Breakout",
@@ -35,6 +37,7 @@ def build_entries(pivots: Pivots | None, orb: OpeningRange | None, price: float 
             trigger=round(orb.low - BUFFER, 2),
             stop=round(orb.high, 2),
             note=f"Breaks below the {ORB_LABEL} opening range low; stop back inside the range.",
+            kind="breakout",
         ))
 
     if pivots:

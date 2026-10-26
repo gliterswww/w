@@ -57,7 +57,10 @@ def get_pivots() -> Pivots | None:
         h, l, c = float(prior["High"]), float(prior["Low"]), float(prior["Close"])
     except Exception:
         return None
+    return pivots_from_hlc(h, l, c)
 
+
+def pivots_from_hlc(h: float, l: float, c: float) -> Pivots:
     p = (h + l + c) / 3
     r1 = 2 * p - l
     s1 = 2 * p - h
